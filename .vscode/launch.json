@@ -110,16 +110,9 @@
         },
         {
             "type": "java",
-            "name": "Launch DocumentationGenerator",
+            "name": "Launch ModuleExport",
             "request": "launch",
-            "mainClass": "io.github.mianalysis.mia.process.documentation.DocumentationGenerator",
-            "projectName": "MIA"
-        },
-        {
-            "type": "java",
-            "name": "Launch MainGenerator",
-            "request": "launch",
-            "mainClass": "io.github.mianalysis.mia.process.documentation.MainGenerator",
+            "mainClass": "io.github.mianalysis.mia.process.documentation.ModuleExport",
             "projectName": "MIA"
         },
         {
