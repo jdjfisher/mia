@@ -26,8 +26,6 @@ public class ModuleExport {
     public static void main(String[] args) {
         TreeMap<String, Module> modules = getModules();
 
-        JSONObject json = new JSONObject();
-
         Category rootCategory = Categories.getRootCategory();
 
         List<JSONObject> moduleList = modules.values()
@@ -35,8 +33,9 @@ public class ModuleExport {
                 .map(ModuleExport::generateModule)
                 .collect(Collectors.toList());
 
-        json.put("modules", moduleList);
-        json.put("categories", generateCategory(rootCategory));
+        JSONObject json = new JSONObject()
+                .put("modules", moduleList)
+                .put("categories", generateCategory(rootCategory));
 
         export(json);
     }
@@ -52,42 +51,44 @@ public class ModuleExport {
     }
 
     public static JSONObject generateCategory(Category category) {
-        JSONObject json = new JSONObject();
-
         List<JSONObject> children = category.getChildren()
                 .stream()
                 .map(ModuleExport::generateCategory)
                 .collect(Collectors.toList());
 
-        json.put("name", category.getName());
-        json.put("description", category.getDescription());
-        json.put("children", children);
+        return new JSONObject()
+                .put("name", category.getName())
+                .put("slug", slugify(category.getName()))
+                .put("description", category.getDescription())
+                .put("children", children);
 
-        return json;
     }
 
     private static JSONObject generateModule(Module module) {
-        JSONObject json = new JSONObject();
-
-        json.put("name", module.getName());
-        json.put("shortDescription", module.getShortDescription());
-        json.put("fullDescription", module.getDescription());
-        json.put("parameters", module.getAllParameters()
+        List<JSONObject> parameters = module.getAllParameters()
                 .values()
                 .stream()
                 .map(ModuleExport::generateParameter)
-                .toArray());
+                .collect(Collectors.toList());
 
-        return json;
+        return new JSONObject()
+                .put("name", module.getName())
+                .put("slug", slugify(module.getName()))
+                .put("shortDescription", module.getShortDescription())
+                .put("fullDescription", module.getDescription())
+                .put("parameters", parameters);
     }
 
     private static JSONObject generateParameter(Parameter parameter) {
-        JSONObject json = new JSONObject();
+        return new JSONObject()
+                .put("name", parameter.getName())
+                .put("description", parameter.getDescription());
+    }
 
-        json.put("name", parameter.getName());
-        json.put("description", parameter.getDescription());
-
-        return json;
+    private static String slugify(String name) {
+        return name.toLowerCase()
+                .replaceAll("[/\\\\?%*:|\"<>]", "")
+                .replaceAll(" ", "-");
     }
 
     private static TreeMap<String, Module> getModules() {
@@ -115,7 +116,5 @@ public class ModuleExport {
         }
 
         return modules;
-
     }
-
 }
