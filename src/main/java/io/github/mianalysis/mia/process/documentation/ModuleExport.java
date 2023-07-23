@@ -5,6 +5,7 @@ import java.io.PrintWriter;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
@@ -22,26 +23,18 @@ import io.github.mianalysis.mia.object.parameters.abstrakt.Parameter;
 public class ModuleExport {
     private static final String OUTPUT_PATH = "./modules.json";
     private static final int JSON_INDENTATION = 2;
+    private static TreeMap<Category, List<Module>> modulesByCategory;
 
     public static void main(String[] args) {
-        TreeMap<String, Module> modules = getModules();
+        modulesByCategory = getModules();
 
-        Category rootCategory = Categories.getRootCategory();
-
-        List<JSONObject> moduleList = modules.values()
-                .stream()
-                .map(ModuleExport::generateModule)
-                .collect(Collectors.toList());
-
-        JSONObject json = new JSONObject()
-                .put("modules", moduleList)
-                .put("categories", generateCategory(rootCategory));
+        JSONObject json = generateCategory(Categories.getRootCategory());
 
         export(json);
     }
 
     private static void export(JSONObject json) {
-        String jsonString = json.toString(JSON_INDENTATION);
+        final String jsonString = json.toString(JSON_INDENTATION);
 
         try (PrintWriter out = new PrintWriter(new FileWriter(OUTPUT_PATH))) {
             out.write(jsonString);
@@ -51,21 +44,26 @@ public class ModuleExport {
     }
 
     public static JSONObject generateCategory(Category category) {
-        List<JSONObject> children = category.getChildren()
+        final List<JSONObject> children = category.getChildren()
                 .stream()
                 .map(ModuleExport::generateCategory)
+                .collect(Collectors.toList());
+
+        final List<JSONObject> modules = modulesByCategory.getOrDefault(category, new ArrayList<>())
+                .stream()
+                .map(ModuleExport::generateModule)
                 .collect(Collectors.toList());
 
         return new JSONObject()
                 .put("name", category.getName())
                 .put("slug", slugify(category.getName()))
                 .put("description", category.getDescription())
-                .put("children", children);
-
+                .put("sub_categories", children)
+                .put("modules", modules);
     }
 
     private static JSONObject generateModule(Module module) {
-        List<JSONObject> parameters = module.getAllParameters()
+        final List<JSONObject> parameters = module.getAllParameters()
                 .values()
                 .stream()
                 .map(ModuleExport::generateParameter)
@@ -91,13 +89,15 @@ public class ModuleExport {
                 .replaceAll(" ", "-");
     }
 
-    private static TreeMap<String, Module> getModules() {
+    private static TreeMap<Category, List<Module>> getModules() {
         // Get a list of Modules
         List<String> moduleNames = AvailableModules.getModuleNames(false);
 
         // Converting the list of classes to a list of Modules
-        TreeMap<String, Module> modules = new TreeMap<>();
+        TreeMap<Category, List<Module>> modulesByCategory = new TreeMap<>();
+
         Modules tempCollection = new Modules();
+
         for (String className : moduleNames) {
             try {
                 Class<Module> clazz = (Class<Module>) Class.forName(className);
@@ -108,13 +108,22 @@ public class ModuleExport {
 
                 Constructor<Module> constructor = clazz.getDeclaredConstructor(Modules.class);
                 Module module = (Module) constructor.newInstance(tempCollection);
-                modules.put(module.getName(), module);
+
+                modulesByCategory.compute(module.getCategory(), (category, modules) -> {
+                    if (modules == null)
+                        modules = new ArrayList<>();
+
+                    modules.add(module);
+
+                    return modules;
+                });
+
             } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | NoSuchMethodException
                     | InvocationTargetException e) {
                 MIA.log.writeError(e);
             }
         }
 
-        return modules;
+        return modulesByCategory;
     }
 }
