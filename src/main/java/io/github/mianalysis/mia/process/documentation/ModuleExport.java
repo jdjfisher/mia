@@ -28,7 +28,7 @@ public class ModuleExport {
     public static void main(String[] args) {
         modulesByCategory = getModules();
 
-        JSONObject json = generateCategory(Categories.getRootCategory());
+        JSONObject json = generateCategory(Categories.getRootCategory(), "");
 
         export(json);
     }
@@ -43,26 +43,35 @@ public class ModuleExport {
         }
     }
 
-    public static JSONObject generateCategory(Category category) {
+    public static JSONObject generateCategory(Category category, String pathPrefix) {
+        final String slug = slugify(category.getName());
+
+        final String path = pathPrefix + "/" + slug;
+
         final List<JSONObject> children = category.getChildren()
                 .stream()
-                .map(ModuleExport::generateCategory)
+                .map(c -> generateCategory(c, path))
                 .collect(Collectors.toList());
 
         final List<JSONObject> modules = modulesByCategory.getOrDefault(category, new ArrayList<>())
                 .stream()
-                .map(ModuleExport::generateModule)
+                .map(m -> generateModule(m, path))
                 .collect(Collectors.toList());
 
         return new JSONObject()
                 .put("name", category.getName())
-                .put("slug", slugify(category.getName()))
+                .put("slug", slug)
+                .put("path", path)
                 .put("description", category.getDescription())
                 .put("sub_categories", children)
                 .put("modules", modules);
     }
 
-    private static JSONObject generateModule(Module module) {
+    private static JSONObject generateModule(Module module, String pathPrefix) {
+        final String slug = slugify(module.getName());
+
+        final String path = pathPrefix + "/" + slug;
+
         final List<JSONObject> parameters = module.getAllParameters()
                 .values()
                 .stream()
@@ -71,7 +80,8 @@ public class ModuleExport {
 
         return new JSONObject()
                 .put("name", module.getName())
-                .put("slug", slugify(module.getName()))
+                .put("slug", slug)
+                .put("path", path)
                 .put("shortDescription", module.getShortDescription())
                 .put("fullDescription", module.getDescription())
                 .put("parameters", parameters);
